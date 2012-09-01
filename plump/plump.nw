@@ -1,0 +1,282 @@
+@ \tableofcontents
+
+\section{Introduction}
+
+This program simulates different strategies that can be used when playing
+the card game Plump. The motivation for writing this program is that I always
+loose when I play the game against family members, and with this program I
+hope to find a superb strategy that can make me win sometimes.
+
+\section{Rules}
+
+Plump is a card game for two to five people, played with one deck of cards.
+The game consists of 18 rounds, and in each round each person is given a fix
+number of cards. In the first round, ten cards are dealt; in the second round
+nine cards are dealt, and so on down to two. At two it turns around and goes
+back to ten again.
+
+Each round starts with everyone (in order) predicts how many sets they will
+take this round. The highest card in each round gets the set of cards (suits
+must be followed). The sum of all preditions can not be equal to the number of
+cards dealt a round. In that case it is possible that everyone gets the
+number of sets that they predicted, which is not allowed. At least one
+person will alwyas not get the number of sets predicted. This is called `to
+plump'.
+
+If one plumps, no points are given to that person that round; if a person
+does not plump (eg. get the number of sets predicted), then ten plus the
+number sets predicted points are given to that person. The person with most
+points in the end after all 18 rounds have been played wins the game.
+
+\section{Layout}
+
+The overall layout of the file is:
+
+<<*>>=
+#!/usr/bin/python
+<<imports>>
+<<constants>>
+<<exceptions>>
+<<classes>>
+<<functions>>
+if __name__ = "__main__":
+    <<main program>>
+@
+\section{Building blocks}
+
+\subsection{Cards}
+
+In order to simulate this card game we need to represent cards. A card has a
+suit and a rank: the suit must be either spades, clubs, diamonds or hearts,
+and the rank must be 2-14. Aces counts only as 14 in this game. A card beats
+another card if the suit is the same and the rank is higher. Once a card has
+been created, its value cannot be changed.
+
+<<constants>>=
+SUITS = (SPADES, CLUBS, DIAMONDS, HEARTS) = range(4)
+
+<<classes>>=
+class Card(object):
+
+    def __init__(self, suit, rank):
+        if not suit in SUITS:
+            raise ValueError("%s is an invalid value for suit." % suit)
+        if rank < 2 or rank > 14:
+            raise ValueError("%s is an invalid value for rank." % rank)
+        self.__suit = suit
+        self.__rank = rank
+
+    @property
+    def suit(self):
+        return self.__suit
+
+    @property
+    def rank(self):
+        return self.__rank
+
+    def beats(self, card):
+        return self.suit == card.suit and self.rank > card.rank
+@        
+\subsection{Card lists}
+
+In many situations we deal with lists of cards: the cards played in a round,
+the cards in a user's hand, used cards, cards in the deck. In many cases we
+want information about this list of cards: if it contains any clubs or get
+the highest card. We build a class on top of the python list and add the
+functionality that we want.
+
+<<exceptions>>=
+class InvalidOperationError(Exception):
+    pass
+
+<<classes>>=
+class CardList(list):
+
+    def index_of_highest(self):
+        if len(self) == 0:
+            raise InvalidOperationError("Can't determine highest card in \
+empty card list.")
+        index_of_highest = 0
+        for i in range(1, len(self)):
+            if self[i].beats(self[index_of_highest]):
+                index_of_highest = i
+        return index_of_highest
+
+    def contains_suit(self, suit):
+        for card in self:
+            if card.suit == suit:
+                return True
+        return False
+
+    def clear(self):
+        del self[:]
+@
+\subsection{Decks}
+
+We also need to represent a deck. A deck is a special card list that, when
+shuffled, is filled with all cards in a deck (52 of them) in a randomized
+order.
+
+<<imports>>=
+import random
+
+<<classes>>=
+class Deck(CardList):
+
+    def __init__(self):
+        self.shuffle()
+
+    def shuffle(self):
+        self.clear()
+        for suit in SUITS:
+            for rank in range(1, 14):
+                self.append(Card(suit, rank))
+        random.shuffle(self.cards)
+@
+\subsection{Players}
+
+Each strategy will be played by a player. A player doesn't know much about
+the game. The game engine (which we will define later) will ask players to
+take actions: predict how many cards to take a round and to play one card.
+Players can query the game engine for information that will help them make
+decisions.
+
+<<classes>>=
+class Player(object):
+
+    def __init__(self):
+        self.cards = CardList()
+
+    def start_game(self, game_engine):
+        self.game_engine = game_engine
+
+    def predict(self):
+        pass
+
+    def play_card(self):
+        pass
+@
+\subsection{Game engine}
+
+Before we start implementing all strategies we need the game engine. The game
+engine know all rules about the game, and it will allow players to
+participate in a game. Once a game engine object has been created, player
+objects can be added with [[add_player]], and the game is then started by
+calling [[start_game]].
+
+The game engine also provides a set of properties that the players can use to
+query information about the game, such as which the current round is and
+which cards have been played a round.
+
+When the game is started, the following properties are available:
+
+\begin{itemize}
+\item num\_players
+\end{itemize}
+
+When a round is about to start, the following propeties are available:
+
+\begin{itemize}
+\item round\_no
+\item cards\_in\_round
+\item predictions
+\end{itemize}
+
+When a round starts (after all predictions are made), the following
+properties are avilable:
+
+\begin{itemize}
+\item rused\_card
+\item psets\_taken(player)
+\end{itemize}
+
+<<classes>>=
+class GameEngine(object):
+
+    def __init__(self):
+        self.players = []
+
+    def add_player(self, player):
+        self.players.add(player)
+
+    def start_game(self):
+        # Ensure that we can start the game
+        if self.num_players < 2:
+            raise InvalidOperationError("Can't start a game with less than \
+two players.")
+        if self.num_players > 5:
+            raise InvalidOperationError("Can't start a game with more than \
+five players.")
+        # Inform all players that the game is starting
+        [player.start_game(self) for player in self.players]
+        # Start playing
+        self.play_rounds()
+
+    def play_rounds(self):
+        # A deck of cards that will be used througout the game
+        deck = Deck()
+        # Setup a list to hold the result table
+        self.results = []
+        # Play each round
+        for i in range(1, 19):
+            self.play_round(i)
+
+    def play_round(self, round_no):
+        # Mark which round we are playing
+        self.round_no = round_no
+        # Reset the deck
+        deck.shuffle()
+        # Hold players predictions and actual sets taken for this round
+        self.predictions = []
+        self.sets_taken = [0] * self.num_players
+        # Ask players for predictions
+        self.collect_predictions()
+        # Deal cards
+        for i in range(self.cards_in_round * self.num_players):
+            self.players[i % self.num_players].cards.append(deck.pop())
+        # Play all sets
+        for i in range(self.cards_in_round):
+            self.play_set()
+
+    def play_set(self):
+
+    def collect_predictions(self):
+        for player in self.players:
+            prediction = player.predict(predictions)
+            if player == self.players[-1]:
+                if sum(self.predictions) + prediction == self.cards_in_round:
+                    raise InvalidOperationError("Last player predicted \
+a value that caused the prediction sum to equal the number of cards dealt \
+this round.")
+                else if prediction < 0 or prediction > self.cards_in_round:
+                    raise InvalidOperationError("Player predicted an \
+invalid number of cards.")
+            self.predictions.append(prediction)
+    
+    @property
+    def num_players(self):
+        return len(self.players)
+
+    @property
+    def cards_in_round(self):
+        if self.current_round < 10:
+            return 11 - self.current_round
+        else:
+            self.current_round - 9
+
+    def get_predictions(self, player):
+        return self.predictions[self.players.index(player)]
+
+    def get_sets_taken(self, player):
+        return self.sets_gotten[self.players.index(player)]
+@
+\section{Strategies}
+
+A strategy is implemented by inheriting the [[Player]] class and overriding
+the [[predict]] and [[play_card]] methods.
+
+<<functions>>=
+# Bogus
+
+<<main program>>=
+#Bogus
