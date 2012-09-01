@@ -15,10 +15,10 @@ initially had.
 
 This project was started during the summer 2007.
 
-Original file listing:
+# Original file listing
 
--rw-r--r--. 1 rick rick   268 Jul 22  2007 Makefile
--rw-r--r--. 1 rick rick  8830 Jul 22  2007 plump.nw
--rw-r--r--. 1 rick rick 73138 Jul 22  2007 plump.pdf
--rw-r--r--. 1 rick rick  4580 Jul 22  2007 plump.py
--rw-r--r--. 1 rick rick   687 Oct  2  2007 README
+    -rw-r--r--. 1 rick rick   268 Jul 22  2007 Makefile
+    -rw-r--r--. 1 rick rick  8830 Jul 22  2007 plump.nw
+    -rw-r--r--. 1 rick rick 73138 Jul 22  2007 plump.pdf
+    -rw-r--r--. 1 rick rick  4580 Jul 22  2007 plump.py
+    -rw-r--r--. 1 rick rick   687 Oct  2  2007 README
